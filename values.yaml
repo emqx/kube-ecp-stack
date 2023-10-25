@@ -1,0 +1,67 @@
+# Default values for ecp.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+imagePullSecrets:
+  - emqx-docker-registry
+
+storage:
+  ecpFileAsserts: 1Gi
+  ecpPrometheusData: 30Gi
+  ecpPrometheusConfig: 1Gi
+  ecpAlertmanagerData: 1Gi
+  ecpAlertmanagerConfig: 1Gi
+  storageClassName: local
+
+monitor:
+  authUsername: "monitor-admin-username"
+  authPassword: "monitor-admin-passw0rd"
+
+mqtt:
+  cloudUsername: "tunnel-cloud-username"
+  cloudPassword: "tunnel-cloud-passw0rd"
+  advertiseUrl: ""
+  agentUsername: "tunnel-agent-username"
+  agentPassword: "tunnel-agent-passw0rd"
+
+images:
+  ecpMain: hub2.ecp.mqttce.com/emqx/ecp-main
+  ecpUi: hub2.ecp.mqttce.com/emqx/ecp-ui
+  ecpEmqxAgentDlProxy: hub2.ecp.mqttce.com/emqx/ecp-emqxagent-dl-proxy
+  ecpPromConfigReloader: hub2.ecp.mqttce.com/emqx/emqx-ecp-prom-config:1.0.0
+
+postgres:
+  # endpoint:
+  username: postgres
+  password: "EMQX@Passw0rd-su"
+  database: "emqx-ecp-db"
+
+# Default values for subcharts.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+createSecret: true
+
+cert-manager:
+  enabled: true
+
+emqx-operator:
+  enabled: true
+  installCRDs: true
+
+edge-operator:
+  enabled: true
+
+telegraf-operator:
+  enabled: true
+
+postgresql:
+  enabled: true
+  global:
+    storageClass: "default"
+  auth:
+    postgresPassword: "EMQX@Passw0rd-su"
+    username: "ecpadmin"
+    password: "EMQX@Passw0rd-su"
+    database: "emqx-ecp-db"
+

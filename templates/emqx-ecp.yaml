@@ -1,0 +1,649 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: emqx-ecp-file-assets-pvc
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  storageClassName: {{ .Values.storage.storageClassName }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.storage.ecpFileAsserts }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: emqx-ecp-promtheus-data-pvc
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  storageClassName: {{ .Values.storage.storageClassName }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.storage.ecpPrometheusData }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: emqx-ecp-promtheus-config-pvc
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  storageClassName: {{ .Values.storage.storageClassName }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.storage.ecpPrometheusConfig }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: emqx-ecp-alertmanager-data-pvc
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  storageClassName: {{ .Values.storage.storageClassName }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.storage.ecpAlertmanagerData }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: emqx-ecp-alertmanager-config-pvc
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  storageClassName: {{ .Values.storage.storageClassName }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.storage.ecpAlertmanagerConfig }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: emqx-ecp-ui-conf
+  namespace: {{ .Release.Namespace | quote }}
+data:
+  default.conf: |
+    server {
+      listen 8080 default;
+      server_name _;
+
+      location / {
+        root /usr/share/nginx/dist;
+        try_files $uri $uri/ /index.html;
+      }
+
+      include /etc/nginx/nginx_edge_template.conf;
+
+      location /api/ {
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $http_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header Host $http_host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_pass http://127.0.0.1:8082;
+        proxy_buffering on;
+        proxy_buffer_size 32k;
+        proxy_busy_buffers_size 256k;
+        proxy_buffers 256 4k;
+      }
+
+      location /dl/emqx/agents/ {
+        proxy_pass http://emqx-ecp-emqx-agent-dl.{{ .Release.Namespace }}.svc/;
+      }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: emqx-ecp-main-conf
+  namespace: {{ .Release.Namespace | quote }}
+data:
+  conf.yaml: |
+    server:
+      port: 8082
+      metrics:
+        enabled: true
+        endpoint: emqx-ecp-svc.{{ .Release.Namespace }}.svc
+        username: "{{ .Values.monitor.authUsername }}"
+        password: "{{ .Values.monitor.authPassword }}"
+
+    db:
+      host: emqx-ecp-postgresql.{{ .Release.Namespace }}.svc
+      user: "{{ .Values.postgres.username }}"
+      password: "{{ .Values.postgres.password }}"
+      dbname: "{{ .Values.postgres.database }}"
+      port: 5432
+      autoMigrate: true
+      timezone: "Asia/Shanghai"
+      logLevel: "warn"
+      slowThreshold: "200ms"
+
+    logger:
+      mode: console
+      # format output log, json/txt
+      format: txt
+      path: /tmp/EMQX-ECP.log
+      level: warning
+      # MaxSize is the maximum size in megabytes of the log file before it gets rotated
+      maxSize: 10
+      # MaxAge is the maximum number of days to retain old log files based on the timestamp encoded in their filename
+      maxAge: 7
+      # MaxBackups is the maximum number of old log files to retain
+      maxBackups: 3
+
+    prometheus:
+      endpoint: emqx-ecp-prometheus-svc.{{ .Release.Namespace }}.svc:9090
+      username: "{{ .Values.monitor.authUsername }}"
+      password: "{{ .Values.monitor.authPassword }}"
+      cfgManager:
+        endpoint: emqx-ecp-prometheus-svc.{{ .Release.Namespace }}.svc:9091
+        username: "{{ .Values.monitor.authUsername }}"
+        password: "{{ .Values.monitor.authPassword }}"
+
+    alertmanager:
+      endpoint: emqx-ecp-alertmanager-svc.{{ .Release.Namespace }}.svc:9093
+      username: "{{ .Values.monitor.authUsername }}"
+      password: "{{ .Values.monitor.authPassword }}"
+      cfgManager:
+        endpoint: emqx-ecp-alertmanager-svc.{{ .Release.Namespace }}.svc:9094
+        username: "{{ .Values.monitor.authUsername }}"
+        password: "{{ .Values.monitor.authPassword }}"
+
+    # keep for later
+    mqtt:
+      addr: emqx-ecp-mqtt-svc.{{ .Release.Namespace }}.svc:1883
+      username: "{{ .Values.mqtt.cloudUsername }}"
+      password: "{{ .Values.mqtt.cloudPassword }}"
+      maxReconnectInterval: 3
+      connectTimeout: 8
+      cleanSession: true
+
+    file:
+      root_folder: "assets/files"
+
+    cluster:
+      agent:
+        mqttServer: {{ default (printf "tcp://emqx-ecp-mqtt-svc.%s.svc:1883" .Release.Namespace) .Values.mqtt.advertiseUrl | quote }}
+        mqttUsername: {{ .Values.mqtt.agentUsername }}
+        mqttPassword: {{ .Values.mqtt.agentPassword }}
+
+    edgeService:
+      mode: mixed
+      auth:
+        privateKey: configs/emqx-ecp
+        publicKey: configs/emqx-ecp.pub
+      interval:
+        health: 10
+      export:
+        prefix: /tmp
+      offlineCycleCount2Alarm: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emqx-ecp-main
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx-ecp-main
+  template:
+    metadata:
+      labels:
+        app: emqx-ecp-main
+    spec:
+      containers:
+        - name: emqx-ecp-ui
+          image: {{ .Values.images.ecpUi }}:{{ .Chart.Version }}
+          imagePullPolicy: {{ .Values.images.imagePullPolicy }}
+          volumeMounts:
+            - name: emqx-ecp-ui-conf
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+              readOnly: true
+            - name: tz
+              mountPath: /etc/localtime
+              subPath: Shanghai
+          ports:
+          - containerPort: 8080
+            name: frontend
+        - name: emqx-ecp-main
+          image: {{ .Values.images.ecpMain }}:{{ .Chart.Version }}
+          imagePullPolicy: {{ .Values.images.imagePullPolicy }}
+          volumeMounts:
+            - name: emqx-ecp-main-conf
+              mountPath: /bc/configs/conf.yaml
+              subPath: conf.yaml
+              readOnly: true
+            - name: emqx-ecp-file-assets
+              mountPath: /bc/assets/files
+            - name: emqx-ecp-edge-key
+              mountPath: /bc/configs/emqx-ecp
+              subPath: emqx-ecp
+              readOnly: true
+            - name: emqx-ecp-edge-key
+              mountPath: /bc/configs/emqx-ecp.pub
+              subPath: emqx-ecp.pub
+              readOnly: true
+            - name: tz
+              mountPath: /etc/localtime
+              subPath: Shanghai
+          env:
+            - name: GIN_MODE
+              value: "release"
+            - name: "ECP_DEPLOYMENT_MODE"
+              value: "k8s"
+          ports:
+          - name: backend
+            containerPort: 8082
+      imagePullSecrets:
+        - name: emqx-docker-registry
+      volumes:
+        - name: emqx-ecp-ui-conf
+          configMap:
+            name: emqx-ecp-ui-conf
+        - name: emqx-ecp-main-conf
+          configMap:
+            name: emqx-ecp-main-conf
+        - name: emqx-ecp-file-assets
+          persistentVolumeClaim:
+            claimName: emqx-ecp-file-assets-pvc
+        - name: emqx-ecp-edge-key
+          secret:
+            secretName: emqx-ecp-edge-key
+        - name: tz
+          configMap:
+            name: tz
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emqx-ecp-svc
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  selector:
+    app: emqx-ecp-main
+  type: NodePort
+  ports:
+    - name: http
+      nodePort: 31900
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emqx-ecp-prometheus-svc
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  selector:
+    app: emqx-ecp-prometheus
+  type: NodePort
+  ports:
+    - name: prom
+      nodePort: 31500
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    - name: prom-cfg
+      nodePort: 31501
+      port: 9091
+      protocol: TCP
+      targetPort: 9091
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emqx-ecp-prometheus
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx-ecp-prometheus
+  template:
+    metadata:
+      labels:
+        app: emqx-ecp-prometheus
+    spec:
+      initContainers:
+        - name: prometheus-config-init
+          image: prom/prometheus:v2.37.9
+          volumeMounts:
+            - name: emqx-ecp-promtheus-config
+              mountPath: /etc/prometheus
+          command:
+            - /bin/sh
+            - -c
+            - >
+              if [ ! -f /etc/prometheus/prometheus.yml ]; then
+                echo "global:" > /etc/prometheus/prometheus.yml
+              fi
+      containers:
+        - name: emqx-ecp-prometheus
+          image: prom/prometheus:v2.37.9
+          volumeMounts:
+            - name: emqx-ecp-promtheus-data
+              mountPath: /prometheus
+            - name: emqx-ecp-promtheus-config
+              mountPath: /etc/prometheus
+            - name: prometheus-web-conf
+              mountPath: /etc/prometheus/web.yml
+              subPath: web.yml
+              readOnly: true
+            - name: tz
+              mountPath: /etc/localtime
+              subPath: Shanghai
+          command:
+            - /bin/prometheus
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=15d
+            - --storage.tsdb.retention.size=20GB
+            - --web.console.libraries=/usr/share/prometheus/console_libraries
+            - --web.console.templates=/usr/share/prometheus/consoles
+            - --web.config.file=/etc/prometheus/web.yml
+            - --web.enable-lifecycle
+          ports:
+          - name: prometheus
+            containerPort: 9090
+        - name: emqx-ecp-prometheus-config-reloader
+          image: {{ .Values.images.ecpPromConfigReloader }}
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: emqx-ecp-promtheus-config
+              mountPath: /etc/prometheus
+          command:
+            - /emqx-antares-prometheus-config
+          args:
+            - --endpoint
+            - emqx-ecp-prometheus-svc.{{ .Release.Namespace }}.svc:9090
+            - --authuser
+            - "{{ .Values.monitor.authUsername }}"
+            - --authpass
+            - "{{ .Values.monitor.authPassword }}"
+            - --promuser
+            - "{{ .Values.monitor.authUsername }}"
+            - --prompass
+            - "{{ .Values.monitor.authPassword }}"
+            - --createOnStart
+          ports:
+          - name: prom-config
+            containerPort: 9091
+      imagePullSecrets:
+        - name: emqx-docker-registry
+      volumes:
+        - name: prometheus-web-conf
+          configMap:
+            name: prometheus-web-conf
+        - name: emqx-ecp-promtheus-data
+          persistentVolumeClaim:
+            claimName: emqx-ecp-promtheus-data-pvc
+        - name: emqx-ecp-promtheus-config
+          persistentVolumeClaim:
+            claimName: emqx-ecp-promtheus-config-pvc
+        - name: tz
+          configMap:
+            name: tz
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emqx-ecp-alertmanager-svc
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  selector:
+    app: emqx-ecp-alertmanager
+  type: NodePort
+  ports:
+    - name: alertmanager
+      nodePort: 31503
+      port: 9093
+      protocol: TCP
+      targetPort: 9093
+    - name: am-cfg
+      nodePort: 31504
+      port: 9094
+      protocol: TCP
+      targetPort: 9095
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emqx-ecp-mqtt-svc
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  selector:
+    app: emqx-ecp-mqtt
+  type: NodePort
+  ports:
+    - name: mqtt
+      nodePort: 31983
+      port: 1883
+      protocol: TCP
+      targetPort: 1883
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emqx-ecp-alertmanager
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx-ecp-alertmanager
+  template:
+    metadata:
+      labels:
+        app: emqx-ecp-alertmanager
+    spec:
+      initContainers:
+        - name: alertmanager-config-init
+          image: prom/alertmanager:v0.25.0
+          volumeMounts:
+            - name: emqx-ecp-alertmanager-config
+              mountPath: /etc/alertmanager
+          command:
+            - sh
+            - -c
+            - >
+              if [ ! -f /etc/alertmanager/alertmanager.yml ]; then
+                echo "route:
+                receiver: 'default'
+              receivers:
+                - name: 'default'" > /etc/alertmanager/alertmanager.yml
+              fi
+      containers:
+        - name: emqx-ecp-alertmanager
+          image: prom/alertmanager:v0.25.0
+          volumeMounts:
+            - name: emqx-ecp-alertmanager-data
+              mountPath: /alertmanager
+            - name: emqx-ecp-alertmanager-config
+              mountPath: /etc/alertmanager
+            - name: prometheus-web-conf
+              mountPath: /etc/alertmanager/web.yml
+              subPath: web.yml
+              readOnly: true
+            - name: tz
+              mountPath: /etc/localtime
+              subPath: Shanghai
+          command:
+            - /bin/alertmanager
+          args:
+            - --config.file=/etc/alertmanager/alertmanager.yml
+            - --web.config.file=/etc/alertmanager/web.yml
+            - --cluster.advertise-address=0.0.0.0:9093
+          ports:
+          - name: alertmanager
+            containerPort: 9093
+        - name: emqx-ecp-alertmanager-config-reloader
+          image: {{ .Values.images.ecpPromConfigReloader }}
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: emqx-ecp-alertmanager-config
+              mountPath: /etc/alertmanager
+          command:
+            - /emqx-antares-prometheus-config
+          args:
+            - --filename
+            - /etc/alertmanager/alertmanager.yml
+            - --endpoint
+            - emqx-ecp-alertmanager-svc.{{ .Release.Namespace }}.svc:9093
+            - --authuser
+            - "{{ .Values.monitor.authUsername }}"
+            - --authpass
+            - "{{ .Values.monitor.authPassword }}"
+            - --promuser
+            - "{{ .Values.monitor.authUsername }}"
+            - --prompass
+            - "{{ .Values.monitor.authPassword }}"
+            - --port
+            - "9095"
+            - --createOnStart
+          ports:
+          - name: am-config
+            containerPort: 9095
+      imagePullSecrets:
+        - name: emqx-docker-registry
+      volumes:
+        - name: prometheus-web-conf
+          configMap:
+            name: prometheus-web-conf
+        - name: emqx-ecp-alertmanager-data
+          persistentVolumeClaim:
+            claimName: emqx-ecp-alertmanager-data-pvc
+        - name: emqx-ecp-alertmanager-config
+          persistentVolumeClaim:
+            claimName: emqx-ecp-alertmanager-config-pvc
+        - name: tz
+          configMap:
+            name: tz
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emqx-ecp-mqtt
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx-ecp-mqtt
+  template:
+    metadata:
+      labels:
+        app: emqx-ecp-mqtt
+    spec:
+      containers:
+        - name: emqx-ecp-mqtt
+          image: emqx/emqx:4.4.18
+          volumeMounts:
+            - name: tz
+              mountPath: /etc/localtime
+              subPath: Shanghai
+          ports:
+          - name: mqtt
+            containerPort: 1883
+          - name: dashboard
+            containerPort: 18083
+          env:
+            - name: EMQX_ALLOW_ANONYMOUS
+              value: 'false'
+            - name: EMQX_LOADED_PLUGINS
+              value: emqx_auth_mnesia
+            - name: EMQX_AUTH__MNESIA__PASSWORD__HASH
+              value: sha256
+            - name: EMQX_AUTH__USER__1__USERNAME
+              value: {{ .Values.mqtt.cloudUsername | quote }}
+            - name: EMQX_AUTH__USER__1__PASSWORD
+              value: {{ .Values.mqtt.cloudPassword | quote }}
+            - name: EMQX_AUTH__USER__2__USERNAME
+              value: {{ .Values.mqtt.agentUsername | quote }}
+            - name: EMQX_AUTH__USER__2__PASSWORD
+              value: {{ .Values.mqtt.agentPassword | quote }}
+      imagePullSecrets:
+        - name: emqx-docker-registry
+      volumes:
+        - name: tz
+          configMap:
+            name: tz
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emqx-ecp-emqx-agent-dl
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  selector:
+    app: emqx-ecp-emqx-agent-download-proxy
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emqx-ecp-emqx-agent-download-proxy
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx-ecp-emqx-agent-download-proxy
+  template:
+    metadata:
+      labels:
+        app: emqx-ecp-emqx-agent-download-proxy
+    spec:
+      containers:
+        - name: emqx-ecp-emqx-agent-download-proxy
+          image: {{ .Values.images.ecpEmqxAgentDlProxy }}:{{ .Chart.Version }}
+          imagePullPolicy: {{ .Values.images.imagePullPolicy }}
+          env:
+            - name: GIN_MODE
+              value: release
+          ports:
+            - name: http
+              containerPort: 80
+      imagePullSecrets:
+        - name: emqx-docker-registry
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-web-conf
+  namespace: {{ .Release.Namespace | quote }}
+data:
+  web.yml: |
+    basic_auth_users:
+      monitor-admin-username: $2a$12$r9.Ez3GDFY3Vce3EwRrFAui3kZBHYHNKWaQcjDL6ES0d69F4iQL.6
+---
+apiVersion: v1
+data:
+  emqx-ecp: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcFFJQkFBS0NBUUVBNUpXd2JMTk5nUWR6akF5NUUzMUE4M2dIV21pb2JLUTZqVmlaY1hlSCtHNVBFbGlxCnVBY3RXcnVKd1pRcjZTNkNiT0RZUEd3NmEvbVJROXhoa1JDeXRXd0F4TVI2bWNUMGtXb05DWUhHVlVETGFCL2UKM0N5LzE2dzVsaGRZeGRpT3VaRC9IaDhicjY1YUJpNU1GRnNRZm4vZGpqRTFNRkcxclIraHZxQ3ZlVmNmaEYwWgpyZ2RIc0xkNFZHWFpJaDI5RUYyd3VEZCtXempUMkprUmFwUTJBM1ZLa0lXZHlXZTN3OG0yaG5GaGJhNlZQNkw0CmM4RCtYcGpqNnIrYXMvWFVzcHNxNlRHMmVKT1RqWnRnRFROT2R3QlR4TFpxUThqYStLc212aDdNM25qTXREam0KbXJqL3F5Y1Y1RmQxTW5QNG82OUpUdkhNTGpQdmlBYzUvbXlJdVFJREFRQUJBb0lCQUVyMkcrbEowN3pncUsvZwo3RURMN3FUcFU5LytPbDJHYmYwMGRQMlU2VzQ3SG9zeHNLcXhEOXFWYmRPaHQ5UzhmK0VjeTB6bFlUTlBvS2ZVCmVkcU0wMDVUb056bVloNVRUTER6U2xzM3g4YmxmTThreEgwSDM5SG1sT3YzdEJFTnQ2QjdRRzZzWFBQOEJXSEoKaFFHWDY0elFlZVBMbDFuRk1nTVlRSDYzUzFSSzh4RkVmYytnV3RRN0tIZDV0ejRNdjJhaktOQko3Vm9MMmVzWgpWN1pJNkFFV3kvZ0QvSVl1Tmd5Y1FBcm54M2ZZRlRjZXdsamdjR0ZRaEM2cVZxQ3VlTko2MU9rNGRXcFZ0ZzRWCnQ2a0VBU1F6NTBydDJWZmpIMTI5VWQ0NWRVckI5b2VmV2ZNaUtjZkxsZ3NtWWQ3dHF0OU9SRW1VdXI3WVR5akoKL1dqTEpwRUNnWUVBLzNqYlV5TFZ6OEhIQTYzS2lIMzFKSE5kbmc5SS9UWkQ2TVU5dERLMjNBblJ1UlI0QVdwWQp0d1VSWnBiTlRpNnJCUjZSZFR3L0VwckVKUDkyY0tacm5aVFVJSWhFbVNrSGlNOVBvQzJjQmMrZGZpM0wyRkdpCkZiTzRJN2ZNSW1kcE9WWW1JNTBHVVpYTFVlNTZjdEdDclorTVN1NHZqNTdmOUwrUW9PNytzNzhDZ1lFQTVRNmIKOGFsZjhQNXl0ZVRhZ2lYWm9Vckg4KzlkN1pZTm1XQTMxYXU3UWZBZnhKTXBiZkJNTFZyNFkwcFFEREwzQlFOdQo0V3FsVG9OemU3TnFReml4bWE4Tm5HbHdRR1J0SFlTbHV6Z2UyNHI2RVUycjNYMi9ZM0ZNbHh6ZUNQM1B3MGUwCmYvaTkwWFgzc0E5QTNNVktMYWVrbURvL3V6VUEwR202NVVLWUFZY0NnWUVBdFQxcWE3cUU4VlZKK1NRc1VWVDYKdXhkVlRUTU8xd1RPZks2aHJkdGt1d29FVFVkbU02cmNzVXJaSTJ6TXpqQnhoN285KzJ2NFd4eU5GcXBkdm1GeQphMk1RY3R2NXZxYksvNVlEcVdGeUZQVkxpQjY1UlFmMDgyeUNzR1JPWUFINU5vSVZvS0pmdnpXRC91WXUzSklpCklVYlZZcnRENXFJUnhESzdTbEVEUlVVQ2dZRUFqK3lGQ2V5Tjd5UkNPWTVweWRzMGlzY3RLbFllSTdua0k1bzAKbXhxRDErT2tZbVRCWkdYWHg2dmdaS3I5N3h4YTRCaVBKQzVaWGlMMGZpWjJ2M1F4QzhyVmQ1RTh5Z2tRRXJzVgpVN1RvbHJRVmVxZmVOSmJkbWdOSHg2K0l5QWVLOHozcjZYa0c5RVQyYy9heG44YUxYSEo0MW5uTEw3c1hIdDFBClpPdGFEYU1DZ1lFQW02enoyWVJqQUJvRmZTcFJXdGd3Vk90Z0sxWkxzWGN3SjZzZGdMRWxuWEFVK0t0TEpjMCsKQVV6Ky9tQ2piNzVVVUcvVzhWZitkOEdRWGRBY2lDYXB4MG9ULzJoZ0VpUkIxQWxwUVlRT2Q4dExwL05OcEx2bwpXYll0K0lLWktWaGFDMTFqYU1KVGpnV3RDZ1F3Z2JEMzZFdnVjanV0cmNRNEpjSGJYRkhFSGE0PQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+  emqx-ecp.pub: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUE1Sld3YkxOTmdRZHpqQXk1RTMxQQo4M2dIV21pb2JLUTZqVmlaY1hlSCtHNVBFbGlxdUFjdFdydUp3WlFyNlM2Q2JPRFlQR3c2YS9tUlE5eGhrUkN5CnRXd0F4TVI2bWNUMGtXb05DWUhHVlVETGFCL2UzQ3kvMTZ3NWxoZFl4ZGlPdVpEL0hoOGJyNjVhQmk1TUZGc1EKZm4vZGpqRTFNRkcxclIraHZxQ3ZlVmNmaEYwWnJnZEhzTGQ0VkdYWkloMjlFRjJ3dURkK1d6alQySmtSYXBRMgpBM1ZLa0lXZHlXZTN3OG0yaG5GaGJhNlZQNkw0YzhEK1hwamo2cithcy9YVXNwc3E2VEcyZUpPVGpadGdEVE5PCmR3QlR4TFpxUThqYStLc212aDdNM25qTXREam1tcmovcXljVjVGZDFNblA0bzY5SlR2SE1MalB2aUFjNS9teUkKdVFJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==
+kind: Secret
+metadata:
+  name: emqx-ecp-edge-key
+  namespace: {{ .Release.Namespace | quote }}
+---
+apiVersion: v1
+binaryData:
+  Shanghai: VFppZjIAAAAAAAAAAAAAAAAAAAAAAAADAAAAAwAAAAAAAAAdAAAAAwAAAAyAAAAAoJeigKF5BPDIWV6AyQn5cMnTvQDLBYrwy3xAANI7PvDTi3uA1EKt8NVFIgDWTL/w1zy/ANgGZnDZHfKA2UF88B66UiAfaZuQIH6EoCFJfZAiZ6EgIylfkCRHgyAlEnwQJidlICbyXhAoB0cgKNJAEAIBAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAABx1wAAAAB+kAEEAABwgAAITE1UAENEVABDU1QAAAAAAAAAVFppZjIAAAAAAAAAAAAAAAAAAAAAAAADAAAAAwAAAAAAAAAdAAAAAwAAAAz/////fjZDKf////+gl6KA/////6F5BPD/////yFlegP/////JCflw/////8nTvQD/////ywWK8P/////LfEAA/////9I7PvD/////04t7gP/////UQq3w/////9VFIgD/////1ky/8P/////XPL8A/////9gGZnD/////2R3ygP/////ZQXzwAAAAAB66UiAAAAAAH2mbkAAAAAAgfoSgAAAAACFJfZAAAAAAImehIAAAAAAjKV+QAAAAACRHgyAAAAAAJRJ8EAAAAAAmJ2UgAAAAACbyXhAAAAAAKAdHIAAAAAAo0kAQAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAQIAAHHXAAAAAH6QAQQAAHCAAAhMTVQAQ0RUAENTVAAAAAAAAAAKQ1NULTgK
+kind: ConfigMap
+metadata:
+  name: tz
+  namespace: {{ .Release.Namespace | quote }}
