@@ -1,8 +1,8 @@
-{{- if .Values.createSecret }}
 apiVersion: v1
 kind: Secret
 metadata:
   name: telegraf-operator-classes
+  namespace: {{ .Release.Namespace | quote }}
 stringData:
   # basic classes that can be used to develop telegraf-operator ; these classes
   # report to InfluxDB v1 in same cluster as well as to stdout for convenience
@@ -101,4 +101,3 @@ stringData:
     # tls_key = "/etc/telegraf/key.pem"
     [outputs.elasticsearch.tagpass]
     collection = ["log"]
-{{- end }}

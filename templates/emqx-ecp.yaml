@@ -64,6 +64,14 @@ spec:
       storage: {{ .Values.storage.ecpAlertmanagerConfig }}
 ---
 apiVersion: v1
+kind: Secret
+metadata:
+  name: emqx-docker-registry
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: {{ template "imagePullSecret" . }}
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: emqx-ecp-ui-conf

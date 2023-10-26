@@ -2,8 +2,7 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-imagePullSecrets:
-  - emqx-docker-registry
+imagePullSecret: "dHJpYWxAZW1xeC5pbzpQdWJsaWNQYXNzdzByZA=="
 
 storage:
   ecpFileAsserts: 1Gi
@@ -23,6 +22,11 @@ mqtt:
   advertiseUrl: ""
   agentUsername: "tunnel-agent-username"
   agentPassword: "tunnel-agent-passw0rd"
+
+imageCredentials:
+  registry: hub2.ecp.mqttce.com
+  username: trial@emqx.io
+  password: PublicPassw0rd
 
 images:
   ecpMain: hub2.ecp.mqttce.com/emqx/ecp-main
