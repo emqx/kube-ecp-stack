@@ -1,0 +1,13 @@
+# .gitignore
+
+# Ignore Helm chart packages
+**/*.tgz
+
+# Ignore local Helm's cache
+.helm/
+
+# Ignore OS generated files
+**/.DS_Store
+Thumbs.db
+
+

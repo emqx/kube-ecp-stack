@@ -2,8 +2,6 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-imagePullSecret: "dHJpYWxAZW1xeC5pbzpQdWJsaWNQYXNzdzByZA=="
-
 storage:
   ecpFileAsserts: 1Gi
   ecpPrometheusData: 30Gi
@@ -29,16 +27,88 @@ imageCredentials:
   password: PublicPassw0rd
 
 images:
-  ecpMain: hub2.ecp.mqttce.com/emqx/ecp-main
-  ecpUi: hub2.ecp.mqttce.com/emqx/ecp-ui
-  ecpEmqxAgentDlProxy: hub2.ecp.mqttce.com/emqx/ecp-emqxagent-dl-proxy
-  ecpPromConfigReloader: hub2.ecp.mqttce.com/emqx/emqx-ecp-prom-config:1.0.0
+  ecpMain:
+    registry: hub2.ecp.mqttce.com
+    repository: emqx/ecp-main
+    tag: ""
+  ecpUi:
+    registry: hub2.ecp.mqttce.com
+    repository: emqx/ecp-ui
+    tag: ""
+  ecpEmqxAgentDlProxy:
+    registry: hub2.ecp.mqttce.com
+    repository: emqx/ecp-emqxagent-dl-proxy
+    tag: ""
+  ecpPromConfigReloader:
+    registry: hub2.ecp.mqttce.com
+    repository: emqx/emqx-ecp-prom-config
+    tag: "1.0.0"
 
 postgres:
   # endpoint:
   username: postgres
   password: "EMQX@Passw0rd-su"
   database: "emqx-ecp-db"
+
+services:
+  - name: emqx-ecp-svc
+    selector:
+      app: emqx-ecp-main
+    type: NodePort
+    ports:
+    - name: http
+      nodePort: 31900
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+  - name: emqx-ecp-emqx-agent-dl
+    selector:
+      app: emqx-ecp-emqx-agent-download-proxy
+    type: ClusterIP
+    ports:
+    - name: http
+      port: 80
+  - name: emqx-ecp-prometheus-svc
+    selector:
+      app: emqx-ecp-prometheus
+    type: NodePort
+    ports:
+    - name: prom
+      nodePort: 31500
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    - name: prom-cfg
+      nodePort: 31501
+      port: 9091
+      protocol: TCP
+      targetPort: 9091
+  - name: emqx-ecp-alertmanager-svc
+    selector:
+      app: emqx-ecp-alertmanager
+    type: NodePort
+    ports:
+    - name: alertmanager
+      nodePort: 31503
+      port: 9093
+      protocol: TCP
+      targetPort: 9093
+    - name: am-cfg
+      nodePort: 31504
+      port: 9094
+      protocol: TCP
+      targetPort: 9095
+  - name: emqx-ecp-mqtt-svc
+    selector:
+      app: emqx-ecp-mqtt
+    type: NodePort
+    ports:
+    - name: mqtt
+      nodePort: 31983
+      port: 1883
+      protocol: TCP
+      targetPort: 1883
+
 
 # Default values for subcharts.
 # This is a YAML-formatted file.
@@ -68,4 +138,5 @@ postgresql:
     username: "ecpadmin"
     password: "EMQX@Passw0rd-su"
     database: "emqx-ecp-db"
+
 

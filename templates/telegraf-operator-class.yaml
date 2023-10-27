@@ -3,6 +3,8 @@ kind: Secret
 metadata:
   name: telegraf-operator-classes
   namespace: {{ .Release.Namespace | quote }}
+  annotations:
+    "helm.sh/hook": post-install
 stringData:
   # basic classes that can be used to develop telegraf-operator ; these classes
   # report to InfluxDB v1 in same cluster as well as to stdout for convenience
