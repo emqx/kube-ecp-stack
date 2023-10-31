@@ -30,7 +30,7 @@ helm dependency update
 helm upgrade --install emqx-ecp . \
   --namespace emqx-ecp \
   --create-namespace \
-  --set storage.storageClassName=<your-storageclass> \
+  --set global.storage.storageClassName=<your-storageclass> \
   --set postgresql.global.storageClass=<your-storageclass>
 ```
 

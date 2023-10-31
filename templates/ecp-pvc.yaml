@@ -1,15 +1,17 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: emqx-ecp-file-assets-pvc
+  name: {{ include "ecp-chart.fullname" . }}-file-assets-pvc
   namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
 spec:
-  storageClassName: {{ .Values.storage.storageClassName }}
+  storageClassName: {{ .Values.global.storage.storageClassName }}
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.storage.ecpFileAsserts }}
+      storage: {{ .Values.ecp.storage.ecpFileAsserts }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -17,48 +19,54 @@ metadata:
   name: emqx-ecp-promtheus-data-pvc
   namespace: {{ .Release.Namespace | quote }}
 spec:
-  storageClassName: {{ .Values.storage.storageClassName }}
+  storageClassName: {{ .Values.global.storage.storageClassName }}
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.storage.ecpPrometheusData }}
+      storage: {{ .Values.prometheus.storage.ecpPrometheusData }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: emqx-ecp-promtheus-config-pvc
+  name: {{ include "ecp-chart.fullname" . }}-promtheus-config-pvc
   namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
 spec:
-  storageClassName: {{ .Values.storage.storageClassName }}
+  storageClassName: {{ .Values.global.storage.storageClassName }}
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.storage.ecpPrometheusConfig }}
+      storage: {{ .Values.prometheus.storage.ecpPrometheusConfig }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: emqx-ecp-alertmanager-data-pvc
+  name: {{ include "ecp-chart.fullname" . }}-alertmanager-data-pvc
   namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
 spec:
-  storageClassName: {{ .Values.storage.storageClassName }}
+  storageClassName: {{ .Values.global.storage.storageClassName }}
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.storage.ecpAlertmanagerData }}
+      storage: {{ .Values.prometheus.storage.ecpAlertmanagerData }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: emqx-ecp-alertmanager-config-pvc
+  name: {{ include "ecp-chart.fullname" . }}-alertmanager-config-pvc
   namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
 spec:
-  storageClassName: {{ .Values.storage.storageClassName }}
+  storageClassName: {{ .Values.global.storage.storageClassName }}
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.storage.ecpAlertmanagerConfig }}
+      storage: {{ .Values.prometheus.storage.ecpAlertmanagerConfig }}

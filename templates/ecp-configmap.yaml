@@ -1,8 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: emqx-ecp-ui-conf
+  name: {{ include "ecp-chart.fullname" . }}-ui-conf
   namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install
 data:
@@ -40,7 +42,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: emqx-ecp-main-conf
+  name: {{ include "ecp-chart.fullname" . }}-main-conf
   namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install
 data:
@@ -50,14 +55,14 @@ data:
       metrics:
         enabled: true
         endpoint: emqx-ecp-svc.{{ .Release.Namespace }}.svc
-        username: "{{ .Values.monitor.authUsername }}"
-        password: "{{ .Values.monitor.authPassword }}"
+        username: "{{ .Values.prometheus.monitor.authUsername }}"
+        password: "{{ .Values.prometheus.monitor.authPassword }}"
 
     db:
       host: emqx-ecp-postgresql.{{ .Release.Namespace }}.svc
-      user: "{{ .Values.postgres.username }}"
-      password: "{{ .Values.postgres.password }}"
-      dbname: "{{ .Values.postgres.database }}"
+      user: "{{ .Values.ecp.db.username }}"
+      password: "{{ .Values.ecp.db.password }}"
+      dbname: "{{ .Values.ecp.db.database }}"
       port: 5432
       autoMigrate: true
       timezone: "Asia/Shanghai"
@@ -79,27 +84,27 @@ data:
 
     prometheus:
       endpoint: emqx-ecp-prometheus-svc.{{ .Release.Namespace }}.svc:9090
-      username: "{{ .Values.monitor.authUsername }}"
-      password: "{{ .Values.monitor.authPassword }}"
+      username: "{{ .Values.prometheus.monitor.authUsername }}"
+      password: "{{ .Values.prometheus.monitor.authPassword }}"
       cfgManager:
         endpoint: emqx-ecp-prometheus-svc.{{ .Release.Namespace }}.svc:9091
-        username: "{{ .Values.monitor.authUsername }}"
-        password: "{{ .Values.monitor.authPassword }}"
+        username: "{{ .Values.prometheus.monitor.authUsername }}"
+        password: "{{ .Values.prometheus.monitor.authPassword }}"
 
     alertmanager:
       endpoint: emqx-ecp-alertmanager-svc.{{ .Release.Namespace }}.svc:9093
-      username: "{{ .Values.monitor.authUsername }}"
-      password: "{{ .Values.monitor.authPassword }}"
+      username: "{{ .Values.prometheus.monitor.authUsername }}"
+      password: "{{ .Values.prometheus.monitor.authPassword }}"
       cfgManager:
         endpoint: emqx-ecp-alertmanager-svc.{{ .Release.Namespace }}.svc:9094
-        username: "{{ .Values.monitor.authUsername }}"
-        password: "{{ .Values.monitor.authPassword }}"
+        username: "{{ .Values.prometheus.monitor.authUsername }}"
+        password: "{{ .Values.prometheus.monitor.authPassword }}"
 
     # keep for later
     mqtt:
       addr: emqx-ecp-mqtt-svc.{{ .Release.Namespace }}.svc:1883
-      username: "{{ .Values.mqtt.cloudUsername }}"
-      password: "{{ .Values.mqtt.cloudPassword }}"
+      username: "{{ .Values.mqtt.auth.cloudUsername }}"
+      password: "{{ .Values.mqtt.auth.cloudPassword }}"
       maxReconnectInterval: 3
       connectTimeout: 8
       cleanSession: true
@@ -110,8 +115,8 @@ data:
     cluster:
       agent:
         mqttServer: {{ default (printf "tcp://emqx-ecp-mqtt-svc.%s.svc:1883" .Release.Namespace) .Values.mqtt.advertiseUrl | quote }}
-        mqttUsername: {{ .Values.mqtt.agentUsername }}
-        mqttPassword: {{ .Values.mqtt.agentPassword }}
+        mqttUsername: {{ .Values.mqtt.auth.agentUsername }}
+        mqttPassword: {{ .Values.mqtt.auth.agentPassword }}
 
     edgeService:
       mode: mixed
@@ -127,8 +132,10 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: prometheus-web-conf
+  name: {{ include "ecp-chart.fullname" . }}-prometheus-web-conf
   namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install
 data:
@@ -141,5 +148,7 @@ binaryData:
   Shanghai: VFppZjIAAAAAAAAAAAAAAAAAAAAAAAADAAAAAwAAAAAAAAAdAAAAAwAAAAyAAAAAoJeigKF5BPDIWV6AyQn5cMnTvQDLBYrwy3xAANI7PvDTi3uA1EKt8NVFIgDWTL/w1zy/ANgGZnDZHfKA2UF88B66UiAfaZuQIH6EoCFJfZAiZ6EgIylfkCRHgyAlEnwQJidlICbyXhAoB0cgKNJAEAIBAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAABx1wAAAAB+kAEEAABwgAAITE1UAENEVABDU1QAAAAAAAAAVFppZjIAAAAAAAAAAAAAAAAAAAAAAAADAAAAAwAAAAAAAAAdAAAAAwAAAAz/////fjZDKf////+gl6KA/////6F5BPD/////yFlegP/////JCflw/////8nTvQD/////ywWK8P/////LfEAA/////9I7PvD/////04t7gP/////UQq3w/////9VFIgD/////1ky/8P/////XPL8A/////9gGZnD/////2R3ygP/////ZQXzwAAAAAB66UiAAAAAAH2mbkAAAAAAgfoSgAAAAACFJfZAAAAAAImehIAAAAAAjKV+QAAAAACRHgyAAAAAAJRJ8EAAAAAAmJ2UgAAAAACbyXhAAAAAAKAdHIAAAAAAo0kAQAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAQIAAHHXAAAAAH6QAQQAAHCAAAhMTVQAQ0RUAENTVAAAAAAAAAAKQ1NULTgK
 kind: ConfigMap
 metadata:
-  name: tz
+  name: {{ include "ecp-chart.fullname" . }}-tz
   namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}

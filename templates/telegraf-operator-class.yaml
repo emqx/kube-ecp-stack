@@ -1,8 +1,10 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: telegraf-operator-classes
+  name: {{ include "ecp-chart.fullname" . }}-telegraf-operator-classes
   namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install
 stringData:

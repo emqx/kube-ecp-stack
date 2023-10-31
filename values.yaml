@@ -2,119 +2,122 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-storage:
-  ecpFileAsserts: 1Gi
-  ecpPrometheusData: 30Gi
-  ecpPrometheusConfig: 1Gi
-  ecpAlertmanagerData: 1Gi
-  ecpAlertmanagerConfig: 1Gi
-  storageClassName: local
+nameOverride: ""
+fullnameOverride: "emqx-ecp"
 
-monitor:
-  authUsername: "monitor-admin-username"
-  authPassword: "monitor-admin-passw0rd"
+global:
+  images:
+    imagePullPolicy: IfNotPresent
+
+    imageCredentials:
+      registry: hub2.ecp.mqttce.com
+      username: ""
+      password: ""
+
+  storage:
+    storageClassName: local
+
+ecp:
+  images:
+    ecpMain:
+      registry: hub2.ecp.mqttce.com
+      repository: emqx/ecp-main
+      tag: ""
+    ecpUi:
+      registry: hub2.ecp.mqttce.com
+      repository: emqx/ecp-ui
+      tag: ""
+    ecpEmqxAgentDlProxy:
+      registry: hub2.ecp.mqttce.com
+      repository: emqx/ecp-emqxagent-dl-proxy
+      tag: ""
+  services:
+    emqxEcpSvc:
+      type: NodePort
+      ports:
+        - name: http
+          nodePort: 31900
+          port: 80
+          protocol: TCP
+          targetPort: 8080
+    emqxEcpEmqxAgentDl:
+      type: ClusterIP
+      ports:
+        - name: http
+          port: 80
+  db:
+    username: postgres
+    password: "EMQX@Passw0rd-su"
+    database: "emqx-ecp-db"
+  storage:
+    ecpFileAsserts: 1Gi
 
 mqtt:
-  cloudUsername: "tunnel-cloud-username"
-  cloudPassword: "tunnel-cloud-passw0rd"
   advertiseUrl: ""
-  agentUsername: "tunnel-agent-username"
-  agentPassword: "tunnel-agent-passw0rd"
+  auth:
+    cloudUsername: "tunnel-cloud-username"
+    cloudPassword: "tunnel-cloud-passw0rd"
+    agentUsername: "tunnel-agent-username"
+    agentPassword: "tunnel-agent-passw0rd"
+  services:
+    emqxEcpMqttSvc:
+      type: NodePort
+      ports:
+        - name: mqtt
+          nodePort: 31983
+          port: 1883
+          protocol: TCP
+          targetPort: 1883
 
-imageCredentials:
-  registry: hub2.ecp.mqttce.com
-  username: trial@emqx.io
-  password: PublicPassw0rd
+prometheus:
+  images:
+    ecpPromConfigReloader:
+      registry: hub2.ecp.mqttce.com
+      repository: emqx/emqx-ecp-prom-config
+      tag: "1.0.0"
 
-images:
-  ecpMain:
-    registry: hub2.ecp.mqttce.com
-    repository: emqx/ecp-main
-    tag: ""
-  ecpUi:
-    registry: hub2.ecp.mqttce.com
-    repository: emqx/ecp-ui
-    tag: ""
-  ecpEmqxAgentDlProxy:
-    registry: hub2.ecp.mqttce.com
-    repository: emqx/ecp-emqxagent-dl-proxy
-    tag: ""
-  ecpPromConfigReloader:
-    registry: hub2.ecp.mqttce.com
-    repository: emqx/emqx-ecp-prom-config
-    tag: "1.0.0"
+  monitor:
+    authUsername: "monitor-admin-username"
+    authPassword: "monitor-admin-passw0rd"
 
-postgres:
-  # endpoint:
-  username: postgres
-  password: "EMQX@Passw0rd-su"
-  database: "emqx-ecp-db"
+  services:
+    emqxEcpPrometheusSvc:
+      type: NodePort
+      ports:
+        - name: prom
+          nodePort: 31500
+          port: 9090
+          protocol: TCP
+          targetPort: 9090
+        - name: prom-cfg
+          nodePort: 31501
+          port: 9091
+          protocol: TCP
+          targetPort: 9091
+    emqxEcpAlertmanagerSvc:
+      type: NodePort
+      ports:
+        - name: alertmanager
+          nodePort: 31503
+          port: 9093
+          protocol: TCP
+          targetPort: 9093
+        - name: am-cfg
+          nodePort: 31504
+          port: 9094
+          protocol: TCP
+          targetPort: 9095
 
-services:
-  - name: emqx-ecp-svc
-    selector:
-      app: emqx-ecp-main
-    type: NodePort
-    ports:
-    - name: http
-      nodePort: 31900
-      port: 80
-      protocol: TCP
-      targetPort: 8080
-  - name: emqx-ecp-emqx-agent-dl
-    selector:
-      app: emqx-ecp-emqx-agent-download-proxy
-    type: ClusterIP
-    ports:
-    - name: http
-      port: 80
-  - name: emqx-ecp-prometheus-svc
-    selector:
-      app: emqx-ecp-prometheus
-    type: NodePort
-    ports:
-    - name: prom
-      nodePort: 31500
-      port: 9090
-      protocol: TCP
-      targetPort: 9090
-    - name: prom-cfg
-      nodePort: 31501
-      port: 9091
-      protocol: TCP
-      targetPort: 9091
-  - name: emqx-ecp-alertmanager-svc
-    selector:
-      app: emqx-ecp-alertmanager
-    type: NodePort
-    ports:
-    - name: alertmanager
-      nodePort: 31503
-      port: 9093
-      protocol: TCP
-      targetPort: 9093
-    - name: am-cfg
-      nodePort: 31504
-      port: 9094
-      protocol: TCP
-      targetPort: 9095
-  - name: emqx-ecp-mqtt-svc
-    selector:
-      app: emqx-ecp-mqtt
-    type: NodePort
-    ports:
-    - name: mqtt
-      nodePort: 31983
-      port: 1883
-      protocol: TCP
-      targetPort: 1883
+  storage:
+    ecpPrometheusData: 30Gi
+    ecpPrometheusConfig: 1Gi
+    ecpAlertmanagerData: 1Gi
+    ecpAlertmanagerConfig: 1Gi
 
 
 # Default values for subcharts.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
-
-createSecret: true
 
 cert-manager:
   enabled: true
@@ -138,5 +141,3 @@ postgresql:
     username: "ecpadmin"
     password: "EMQX@Passw0rd-su"
     database: "emqx-ecp-db"
-
-
