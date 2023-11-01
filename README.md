@@ -18,13 +18,23 @@ Here are the steps to deploy emqx-ecp using the Helm chart:
 git clone https://github.com/emqx/kube-ecp-stack.git
 cd kube-ecp-stack
 ```
-2. Update subchart dependencies:
+2. Configure image registry
+```bash
+global:
+  images:
+    registry: <your_image_registry>
+    imageCredentials:
+      username: <your_user_name>
+      password: <your_user_password>
+```
+
+3. Update subchart dependencies:
 
 ```bash
 helm dependency update
 ```
 
-3. Install the Helm chart:
+4. Install the Helm chart:
 
 ```bash
 helm upgrade --install emqx-ecp . \

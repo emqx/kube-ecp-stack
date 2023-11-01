@@ -34,14 +34,13 @@ data:
       }
 
       location /dl/emqx/agents/ {
-        proxy_pass http://emqx-ecp-emqx-agent-dl.{{ .Release.Namespace }}.svc/;
+        proxy_pass http://{{ include "ecp-chart.fullname" . }}-emqx-agent-dl.{{ .Release.Namespace }}.svc/;
       }
     }
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: emqx-ecp-main-conf
   name: {{ include "ecp-chart.fullname" . }}-main-conf
   namespace: {{ .Release.Namespace | quote }}
   labels:
@@ -54,12 +53,12 @@ data:
       port: 8082
       metrics:
         enabled: true
-        endpoint: emqx-ecp-svc.{{ .Release.Namespace }}.svc
+        endpoint: {{ include "ecp-chart.fullname" . }}-svc.{{ .Release.Namespace }}.svc
         username: "{{ .Values.prometheus.monitor.authUsername }}"
         password: "{{ .Values.prometheus.monitor.authPassword }}"
 
     db:
-      host: emqx-ecp-postgresql.{{ .Release.Namespace }}.svc
+      host: {{ include "ecp-chart.fullname" . }}-postgresql.{{ .Release.Namespace }}.svc
       user: "{{ .Values.ecp.db.username }}"
       password: "{{ .Values.ecp.db.password }}"
       dbname: "{{ .Values.ecp.db.database }}"
@@ -83,26 +82,26 @@ data:
       maxBackups: 3
 
     prometheus:
-      endpoint: emqx-ecp-prometheus-svc.{{ .Release.Namespace }}.svc:9090
+      endpoint: {{ include "ecp-chart.fullname" . }}-prometheus-svc.{{ .Release.Namespace }}.svc:9090
       username: "{{ .Values.prometheus.monitor.authUsername }}"
       password: "{{ .Values.prometheus.monitor.authPassword }}"
       cfgManager:
-        endpoint: emqx-ecp-prometheus-svc.{{ .Release.Namespace }}.svc:9091
+        endpoint: {{ include "ecp-chart.fullname" . }}-prometheus-svc.{{ .Release.Namespace }}.svc:9091
         username: "{{ .Values.prometheus.monitor.authUsername }}"
         password: "{{ .Values.prometheus.monitor.authPassword }}"
 
     alertmanager:
-      endpoint: emqx-ecp-alertmanager-svc.{{ .Release.Namespace }}.svc:9093
+      endpoint: {{ include "ecp-chart.fullname" . }}-alertmanager-svc.{{ .Release.Namespace }}.svc:9093
       username: "{{ .Values.prometheus.monitor.authUsername }}"
       password: "{{ .Values.prometheus.monitor.authPassword }}"
       cfgManager:
-        endpoint: emqx-ecp-alertmanager-svc.{{ .Release.Namespace }}.svc:9094
+        endpoint: {{ include "ecp-chart.fullname" . }}-alertmanager-svc.{{ .Release.Namespace }}.svc:9094
         username: "{{ .Values.prometheus.monitor.authUsername }}"
         password: "{{ .Values.prometheus.monitor.authPassword }}"
 
     # keep for later
     mqtt:
-      addr: emqx-ecp-mqtt-svc.{{ .Release.Namespace }}.svc:1883
+      addr: {{ include "ecp-chart.fullname" . }}-mqtt-svc.{{ .Release.Namespace }}.svc:1883
       username: "{{ .Values.mqtt.auth.cloudUsername }}"
       password: "{{ .Values.mqtt.auth.cloudPassword }}"
       maxReconnectInterval: 3
@@ -114,9 +113,11 @@ data:
 
     cluster:
       agent:
-        mqttServer: {{ default (printf "tcp://emqx-ecp-mqtt-svc.%s.svc:1883" .Release.Namespace) .Values.mqtt.advertiseUrl | quote }}
-        mqttUsername: {{ .Values.mqtt.auth.agentUsername }}
-        mqttPassword: {{ .Values.mqtt.auth.agentPassword }}
+        {{- $fullName := include "ecp-chart.fullname" . -}}
+        {{- printf "\n" | nindent 2 }}
+        mqttServer: {{ default (printf "tcp://%s-mqtt-svc.%s.svc:1883" $fullName .Release.Namespace) .Values.mqtt.advertiseUrl | nindent 10 }}
+        mqttUsername: {{ .Values.mqtt.auth.agentUsername | nindent 10 }}
+        mqttPassword: {{ .Values.mqtt.auth.agentPassword | nindent 10 }}
 
     edgeService:
       mode: mixed

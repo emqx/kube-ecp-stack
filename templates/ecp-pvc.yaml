@@ -8,10 +8,10 @@ metadata:
 spec:
   storageClassName: {{ .Values.global.storage.storageClassName }}
   accessModes:
-    - ReadWriteOnce
+    - {{ .Values.global.storage.accessModes }}
   resources:
     requests:
-      storage: {{ .Values.ecp.storage.ecpFileAsserts }}
+      storage: {{ .Values.ecp.storage.fileAsserts }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -21,10 +21,10 @@ metadata:
 spec:
   storageClassName: {{ .Values.global.storage.storageClassName }}
   accessModes:
-    - ReadWriteOnce
+    - {{ .Values.global.storage.accessModes }}
   resources:
     requests:
-      storage: {{ .Values.prometheus.storage.ecpPrometheusData }}
+      storage: {{ .Values.prometheus.storage.prometheusData }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -36,10 +36,10 @@ metadata:
 spec:
   storageClassName: {{ .Values.global.storage.storageClassName }}
   accessModes:
-    - ReadWriteOnce
+    - {{ .Values.global.storage.accessModes }}
   resources:
     requests:
-      storage: {{ .Values.prometheus.storage.ecpPrometheusConfig }}
+      storage: {{ .Values.prometheus.storage.prometheusConfig }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -51,10 +51,10 @@ metadata:
 spec:
   storageClassName: {{ .Values.global.storage.storageClassName }}
   accessModes:
-    - ReadWriteOnce
+    - {{ .Values.global.storage.accessModes }}
   resources:
     requests:
-      storage: {{ .Values.prometheus.storage.ecpAlertmanagerData }}
+      storage: {{ .Values.prometheus.storage.alertmanagerData }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -66,7 +66,7 @@ metadata:
 spec:
   storageClassName: {{ .Values.global.storage.storageClassName }}
   accessModes:
-    - ReadWriteOnce
+    - {{ .Values.global.storage.accessModes }}
   resources:
     requests:
-      storage: {{ .Values.prometheus.storage.ecpAlertmanagerConfig }}
+      storage: {{ .Values.prometheus.storage.alertmanagerConfig }}

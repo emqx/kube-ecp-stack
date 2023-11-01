@@ -5,6 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "ecp-chart.labels" . | nindent 4 }}
+    app: emqx-ecp-main
 spec:
   replicas: 1
   selector:
@@ -17,7 +18,7 @@ spec:
     spec:
       containers:
         - name: emqx-ecp-ui
-          image: "{{ .Values.ecp.images.ecpUi.registry }}/{{ .Values.ecp.images.ecpUi.repository}}:{{ .Values.ecp.images.ecpUi.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.global.images.registry }}/{{ .Values.ecp.images.ui.repository}}:{{ .Values.ecp.images.ui.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.global.images.imagePullPolicy }}
           volumeMounts:
             - name: emqx-ecp-ui-conf
@@ -31,7 +32,7 @@ spec:
           - containerPort: 8080
             name: frontend
         - name: emqx-ecp-main
-          image: "{{ .Values.ecp.images.ecpMain.registry }}/{{ .Values.ecp.images.ecpMain.repository}}:{{ .Values.ecp.images.ecpMain.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.global.images.registry }}/{{ .Values.ecp.images.main.repository}}:{{ .Values.ecp.images.main.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.global.images.imagePullPolicy }}
           volumeMounts:
             - name: emqx-ecp-main-conf
@@ -52,7 +53,7 @@ spec:
           - name: backend
             containerPort: 8082
       imagePullSecrets:
-        - name: emqx-docker-registry
+        - name: {{ include "ecp-chart.fullname" . }}-docker-registry
       volumes:
         - name: emqx-ecp-ui-conf
           configMap:
@@ -74,6 +75,7 @@ metadata:
   namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "ecp-chart.labels" . | nindent 4 }}
+    app: emqx-ecp-prometheus
 spec:
   replicas: 1
   selector:
@@ -127,7 +129,7 @@ spec:
           - name: prometheus
             containerPort: 9090
         - name: emqx-ecp-prometheus-config-reloader
-          image: "{{ .Values.prometheus.images.ecpPromConfigReloader.registry }}/{{ .Values.prometheus.images.ecpPromConfigReloader.repository}}:{{ .Values.prometheus.images.ecpPromConfigReloader.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.global.images.registry }}/{{ .Values.prometheus.images.promConfigReloader.repository}}:{{ .Values.prometheus.images.promConfigReloader.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.global.images.imagePullPolicy }}
           volumeMounts:
             - name: emqx-ecp-promtheus-config
@@ -136,7 +138,7 @@ spec:
             - /emqx-antares-prometheus-config
           args:
             - --endpoint
-            - emqx-ecp-prometheus-svc.{{ .Release.Namespace }}.svc:9090
+            - {{ include "ecp-chart.fullname" . }}-prometheus-svc.{{ .Release.Namespace }}.svc:9090
             - --authuser
             - "{{ .Values.prometheus.monitor.authUsername }}"
             - --authpass
@@ -150,7 +152,7 @@ spec:
           - name: prom-config
             containerPort: 9091
       imagePullSecrets:
-        - name: emqx-docker-registry
+        - name: {{ include "ecp-chart.fullname" . }}-docker-registry
       volumes:
         - name: prometheus-web-conf
           configMap:
@@ -172,6 +174,7 @@ metadata:
   namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "ecp-chart.labels" . | nindent 4 }}
+    app: emqx-ecp-alertmanager
 spec:
   replicas: 1
   selector:
@@ -223,7 +226,7 @@ spec:
           - name: alertmanager
             containerPort: 9093
         - name: emqx-ecp-alertmanager-config-reloader
-          image: "{{ .Values.prometheus.images.ecpPromConfigReloader.registry }}/{{ .Values.prometheus.images.ecpPromConfigReloader.repository}}:{{ .Values.prometheus.images.ecpPromConfigReloader.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.global.images.registry }}/{{ .Values.prometheus.images.promConfigReloader.repository}}:{{ .Values.prometheus.images.promConfigReloader.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.global.images.imagePullPolicy }}
           volumeMounts:
             - name: emqx-ecp-alertmanager-config
@@ -234,7 +237,7 @@ spec:
             - --filename
             - /etc/alertmanager/alertmanager.yml
             - --endpoint
-            - emqx-ecp-alertmanager-svc.{{ .Release.Namespace }}.svc:9093
+            - {{ include "ecp-chart.fullname" . }}-alertmanager-svc.{{ .Release.Namespace }}.svc:9093
             - --authuser
             - "{{ .Values.prometheus.monitor.authUsername }}"
             - --authpass
@@ -250,7 +253,7 @@ spec:
           - name: am-config
             containerPort: 9095
       imagePullSecrets:
-        - name: emqx-docker-registry
+        - name: {{ include "ecp-chart.fullname" . }}-docker-registry
       volumes:
         - name: prometheus-web-conf
           configMap:
@@ -272,6 +275,7 @@ metadata:
   namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "ecp-chart.labels" . | nindent 4 }}
+    app: emqx-ecp-mqtt
 spec:
   replicas: 1
   selector:
@@ -310,7 +314,7 @@ spec:
             - name: EMQX_AUTH__USER__2__PASSWORD
               value: {{ .Values.mqtt.auth.agentPassword | quote }}
       imagePullSecrets:
-        - name: emqx-docker-registry
+        - name: {{ include "ecp-chart.fullname" . }}-docker-registry
       volumes:
         - name: tz
           configMap:
@@ -323,6 +327,7 @@ metadata:
   namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "ecp-chart.labels" . | nindent 4 }}
+    app: emqx-ecp-emqx-agent-download-proxy
 spec:
   replicas: 1
   selector:
@@ -335,7 +340,7 @@ spec:
     spec:
       containers:
         - name: emqx-ecp-emqx-agent-download-proxy
-          image: "{{ .Values.ecp.images.ecpEmqxAgentDlProxy.registry }}/{{ .Values.ecp.images.ecpEmqxAgentDlProxy.repository}}:{{ .Values.ecp.images.ecpEmqxAgentDlProxy.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.global.images.registry }}/{{ .Values.ecp.images.agentDlProxy.repository}}:{{ .Values.ecp.images.agentDlProxy.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.global.images.imagePullPolicy }}
           env:
             - name: GIN_MODE
@@ -344,5 +349,5 @@ spec:
             - name: http
               containerPort: 80
       imagePullSecrets:
-        - name: emqx-docker-registry
+        - name: {{ include "ecp-chart.fullname" . }}-docker-registry
 ---

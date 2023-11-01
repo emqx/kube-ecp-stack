@@ -25,5 +25,3 @@ dependencies:
   - name: telegraf-operator
     version: v1.3.10
     repository: https://helm.influxdata.com
-
-

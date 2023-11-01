@@ -7,32 +7,33 @@ fullnameOverride: "emqx-ecp"
 
 global:
   images:
-    imagePullPolicy: IfNotPresent
-
+    registry: hub2.ecp.mqttce.com
     imageCredentials:
       registry: hub2.ecp.mqttce.com
       username: ""
       password: ""
+    imagePullPolicy: IfNotPresent
 
   storage:
     storageClassName: local
+    accessModes: ReadWriteOnce
 
 ecp:
   images:
-    ecpMain:
+    main:
       registry: hub2.ecp.mqttce.com
       repository: emqx/ecp-main
       tag: ""
-    ecpUi:
+    ui:
       registry: hub2.ecp.mqttce.com
       repository: emqx/ecp-ui
       tag: ""
-    ecpEmqxAgentDlProxy:
+    agentDlProxy:
       registry: hub2.ecp.mqttce.com
       repository: emqx/ecp-emqxagent-dl-proxy
       tag: ""
   services:
-    emqxEcpSvc:
+    mainSvc:
       type: NodePort
       ports:
         - name: http
@@ -40,7 +41,7 @@ ecp:
           port: 80
           protocol: TCP
           targetPort: 8080
-    emqxEcpEmqxAgentDl:
+    agentDlSvc:
       type: ClusterIP
       ports:
         - name: http
@@ -50,7 +51,7 @@ ecp:
     password: "EMQX@Passw0rd-su"
     database: "emqx-ecp-db"
   storage:
-    ecpFileAsserts: 1Gi
+    fileAsserts: 1Gi
 
 mqtt:
   advertiseUrl: ""
@@ -60,7 +61,7 @@ mqtt:
     agentUsername: "tunnel-agent-username"
     agentPassword: "tunnel-agent-passw0rd"
   services:
-    emqxEcpMqttSvc:
+    mqttSvc:
       type: NodePort
       ports:
         - name: mqtt
@@ -71,7 +72,7 @@ mqtt:
 
 prometheus:
   images:
-    ecpPromConfigReloader:
+    promConfigReloader:
       registry: hub2.ecp.mqttce.com
       repository: emqx/emqx-ecp-prom-config
       tag: "1.0.0"
@@ -81,7 +82,7 @@ prometheus:
     authPassword: "monitor-admin-passw0rd"
 
   services:
-    emqxEcpPrometheusSvc:
+    prometheusSvc:
       type: NodePort
       ports:
         - name: prom
@@ -94,7 +95,7 @@ prometheus:
           port: 9091
           protocol: TCP
           targetPort: 9091
-    emqxEcpAlertmanagerSvc:
+    alertmanagerSvc:
       type: NodePort
       ports:
         - name: alertmanager
@@ -109,10 +110,10 @@ prometheus:
           targetPort: 9095
 
   storage:
-    ecpPrometheusData: 30Gi
-    ecpPrometheusConfig: 1Gi
-    ecpAlertmanagerData: 1Gi
-    ecpAlertmanagerConfig: 1Gi
+    prometheusData: 30Gi
+    prometheusConfig: 1Gi
+    alertmanagerData: 1Gi
+    alertmanagerConfig: 1Gi
 
 
 # Default values for subcharts.

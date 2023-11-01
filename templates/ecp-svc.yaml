@@ -8,9 +8,9 @@ metadata:
 spec:
   selector:
     app: emqx-ecp-main
-  type: {{ .Values.ecp.services.emqxEcpSvc.type }}
+  type: {{ .Values.ecp.services.mainSvc.type }}
   ports:
-   {{- range .Values.ecp.services.emqxEcpSvc.ports }}
+   {{- range .Values.ecp.services.mainSvc.ports }}
     - name: {{ .name }}
       port: {{ .port }}
       protocol: {{ .protocol }}
@@ -28,9 +28,9 @@ metadata:
 spec:
   selector:
     app: emqx-ecp-emqx-agent-download-proxy
-  type: {{ .Values.ecp.services.emqxEcpEmqxAgentDl.type }}
+  type: {{ .Values.ecp.services.agentDlSvc.type }}
   ports:
-    {{- range .Values.ecp.services.emqxEcpEmqxAgentDl.ports }}
+    {{- range .Values.ecp.services.agentDlSvc.ports }}
     - name: {{ .name }}
       port: {{ .port }}
     {{- end }}
@@ -45,9 +45,9 @@ metadata:
 spec:
   selector:
     app: emqx-ecp-prometheus
-  type: {{ .Values.prometheus.services.emqxEcpPrometheusSvc.type }}
+  type: {{ .Values.prometheus.services.prometheusSvc.type }}
   ports:
-    {{- range .Values.prometheus.services.emqxEcpPrometheusSvc.ports }}
+    {{- range .Values.prometheus.services.prometheusSvc.ports }}
     - name: {{ .name }}
       port: {{ .port }}
       protocol: {{ .protocol }}
@@ -65,9 +65,9 @@ metadata:
 spec:
   selector:
     app: emqx-ecp-alertmanager
-  type: {{ .Values.prometheus.services.emqxEcpAlertmanagerSvc.type }}
+  type: {{ .Values.prometheus.services.alertmanagerSvc.type }}
   ports:
-    {{- range .Values.prometheus.services.emqxEcpAlertmanagerSvc.ports }}
+    {{- range .Values.prometheus.services.alertmanagerSvc.ports }}
     - name: {{ .name }}
       port: {{ .port }}
       protocol: {{ .protocol }}
@@ -85,9 +85,9 @@ metadata:
 spec:
   selector:
     app: emqx-ecp-mqtt
-  type: {{ .Values.mqtt.services.emqxEcpMqttSvc.type }}
+  type: {{ .Values.mqtt.services.mqttSvc.type }}
   ports:
-    {{- range .Values.mqtt.services.emqxEcpMqttSvc.ports }}
+    {{- range .Values.mqtt.services.mqttSvc.ports }}
     - name: {{ .name }}
       port: {{ .port }}
       protocol: {{ .protocol }}
