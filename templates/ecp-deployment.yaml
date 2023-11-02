@@ -1,0 +1,353 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-main
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+    app: emqx-ecp-main
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx-ecp-main
+  template:
+    metadata:
+      labels:
+        app: emqx-ecp-main
+    spec:
+      containers:
+        - name: emqx-ecp-ui
+          image: "{{ .Values.global.images.registry }}/{{ .Values.ecp.images.ui.repository}}:{{ .Values.ecp.images.ui.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.global.images.imagePullPolicy }}
+          volumeMounts:
+            - name: emqx-ecp-ui-conf
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+              readOnly: true
+            - name: tz
+              mountPath: /etc/localtime
+              subPath: Shanghai
+          ports:
+          - containerPort: 8080
+            name: frontend
+        - name: emqx-ecp-main
+          image: "{{ .Values.global.images.registry }}/{{ .Values.ecp.images.main.repository}}:{{ .Values.ecp.images.main.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.global.images.imagePullPolicy }}
+          volumeMounts:
+            - name: emqx-ecp-main-conf
+              mountPath: /bc/configs/conf.yaml
+              subPath: conf.yaml
+              readOnly: true
+            - name: emqx-ecp-file-assets
+              mountPath: /bc/assets/files
+            - name: tz
+              mountPath: /etc/localtime
+              subPath: Shanghai
+          env:
+            - name: GIN_MODE
+              value: "release"
+            - name: "ECP_DEPLOYMENT_MODE"
+              value: "k8s"
+          ports:
+          - name: backend
+            containerPort: 8082
+      imagePullSecrets:
+        - name: {{ include "ecp-chart.fullname" . }}-docker-registry
+      volumes:
+        - name: emqx-ecp-ui-conf
+          configMap:
+            name: emqx-ecp-ui-conf
+        - name: emqx-ecp-main-conf
+          configMap:
+            name: emqx-ecp-main-conf
+        - name: emqx-ecp-file-assets
+          persistentVolumeClaim:
+            claimName: emqx-ecp-file-assets-pvc
+        - name: tz
+          configMap:
+            name: {{ include "ecp-chart.fullname" . }}-tz
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-prometheus
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+    app: emqx-ecp-prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx-ecp-prometheus
+  template:
+    metadata:
+      labels:
+        app: emqx-ecp-prometheus
+    spec:
+      initContainers:
+        - name: prometheus-config-init
+          image: prom/prometheus:v2.37.9
+          volumeMounts:
+            - name: emqx-ecp-promtheus-config
+              mountPath: /etc/prometheus
+          command:
+            - /bin/sh
+            - -c
+            - >
+              if [ ! -f /etc/prometheus/prometheus.yml ]; then
+                echo "global:" > /etc/prometheus/prometheus.yml
+              fi
+      containers:
+        - name: emqx-ecp-prometheus
+          image: prom/prometheus:v2.37.9
+          volumeMounts:
+            - name: emqx-ecp-promtheus-data
+              mountPath: /prometheus
+            - name: emqx-ecp-promtheus-config
+              mountPath: /etc/prometheus
+            - name: prometheus-web-conf
+              mountPath: /etc/prometheus/web.yml
+              subPath: web.yml
+              readOnly: true
+            - name: tz
+              mountPath: /etc/localtime
+              subPath: Shanghai
+          command:
+            - /bin/prometheus
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=15d
+            - --storage.tsdb.retention.size=20GB
+            - --web.console.libraries=/usr/share/prometheus/console_libraries
+            - --web.console.templates=/usr/share/prometheus/consoles
+            - --web.config.file=/etc/prometheus/web.yml
+            - --web.enable-lifecycle
+          ports:
+          - name: prometheus
+            containerPort: 9090
+        - name: emqx-ecp-prometheus-config-reloader
+          image: "{{ .Values.global.images.registry }}/{{ .Values.prometheus.images.promConfigReloader.repository}}:{{ .Values.prometheus.images.promConfigReloader.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.global.images.imagePullPolicy }}
+          volumeMounts:
+            - name: emqx-ecp-promtheus-config
+              mountPath: /etc/prometheus
+          command:
+            - /emqx-antares-prometheus-config
+          args:
+            - --endpoint
+            - {{ include "ecp-chart.fullname" . }}-prometheus-svc.{{ .Release.Namespace }}.svc:9090
+            - --authuser
+            - "{{ .Values.prometheus.monitor.authUsername }}"
+            - --authpass
+            - "{{ .Values.prometheus.monitor.authPassword }}"
+            - --promuser
+            - "{{ .Values.prometheus.monitor.authUsername }}"
+            - --prompass
+            - "{{ .Values.prometheus.monitor.authPassword }}"
+            - --createOnStart
+          ports:
+          - name: prom-config
+            containerPort: 9091
+      imagePullSecrets:
+        - name: {{ include "ecp-chart.fullname" . }}-docker-registry
+      volumes:
+        - name: prometheus-web-conf
+          configMap:
+            name: {{ include "ecp-chart.fullname" . }}-prometheus-web-conf
+        - name: emqx-ecp-promtheus-data
+          persistentVolumeClaim:
+            claimName: emqx-ecp-promtheus-data-pvc
+        - name: emqx-ecp-promtheus-config
+          persistentVolumeClaim:
+            claimName: emqx-ecp-promtheus-config-pvc
+        - name: tz
+          configMap:
+            name: {{ include "ecp-chart.fullname" . }}-tz
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-alertmanager
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+    app: emqx-ecp-alertmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx-ecp-alertmanager
+  template:
+    metadata:
+      labels:
+        app: emqx-ecp-alertmanager
+    spec:
+      initContainers:
+        - name: alertmanager-config-init
+          image: prom/alertmanager:v0.25.0
+          volumeMounts:
+            - name: emqx-ecp-alertmanager-config
+              mountPath: /etc/alertmanager
+          command:
+            - sh
+            - -c
+            - >
+              if [ ! -f /etc/alertmanager/alertmanager.yml ]; then
+                echo "route:
+                receiver: 'default'
+              receivers:
+                - name: 'default'" > /etc/alertmanager/alertmanager.yml
+              fi
+      containers:
+        - name: emqx-ecp-alertmanager
+          image: prom/alertmanager:v0.25.0
+          volumeMounts:
+            - name: emqx-ecp-alertmanager-data
+              mountPath: /alertmanager
+            - name: emqx-ecp-alertmanager-config
+              mountPath: /etc/alertmanager
+            - name: prometheus-web-conf
+              mountPath: /etc/alertmanager/web.yml
+              subPath: web.yml
+              readOnly: true
+            - name: tz
+              mountPath: /etc/localtime
+              subPath: Shanghai
+          command:
+            - /bin/alertmanager
+          args:
+            - --config.file=/etc/alertmanager/alertmanager.yml
+            - --web.config.file=/etc/alertmanager/web.yml
+            - --cluster.advertise-address=0.0.0.0:9093
+          ports:
+          - name: alertmanager
+            containerPort: 9093
+        - name: emqx-ecp-alertmanager-config-reloader
+          image: "{{ .Values.global.images.registry }}/{{ .Values.prometheus.images.promConfigReloader.repository}}:{{ .Values.prometheus.images.promConfigReloader.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.global.images.imagePullPolicy }}
+          volumeMounts:
+            - name: emqx-ecp-alertmanager-config
+              mountPath: /etc/alertmanager
+          command:
+            - /emqx-antares-prometheus-config
+          args:
+            - --filename
+            - /etc/alertmanager/alertmanager.yml
+            - --endpoint
+            - {{ include "ecp-chart.fullname" . }}-alertmanager-svc.{{ .Release.Namespace }}.svc:9093
+            - --authuser
+            - "{{ .Values.prometheus.monitor.authUsername }}"
+            - --authpass
+            - "{{ .Values.prometheus.monitor.authPassword }}"
+            - --promuser
+            - "{{ .Values.prometheus.monitor.authUsername }}"
+            - --prompass
+            - "{{ .Values.prometheus.monitor.authPassword }}"
+            - --port
+            - "9095"
+            - --createOnStart
+          ports:
+          - name: am-config
+            containerPort: 9095
+      imagePullSecrets:
+        - name: {{ include "ecp-chart.fullname" . }}-docker-registry
+      volumes:
+        - name: prometheus-web-conf
+          configMap:
+            name: {{ include "ecp-chart.fullname" . }}-prometheus-web-conf
+        - name: emqx-ecp-alertmanager-data
+          persistentVolumeClaim:
+            claimName: emqx-ecp-alertmanager-data-pvc
+        - name: emqx-ecp-alertmanager-config
+          persistentVolumeClaim:
+            claimName: emqx-ecp-alertmanager-config-pvc
+        - name: tz
+          configMap:
+            name: {{ include "ecp-chart.fullname" . }}-tz
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-mqtt
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+    app: emqx-ecp-mqtt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx-ecp-mqtt
+  template:
+    metadata:
+      labels:
+        app: emqx-ecp-mqtt
+    spec:
+      containers:
+        - name: emqx-ecp-mqtt
+          image: emqx/emqx:4.4.18
+          volumeMounts:
+            - name: tz
+              mountPath: /etc/localtime
+              subPath: Shanghai
+          ports:
+          - name: mqtt
+            containerPort: 1883
+          - name: dashboard
+            containerPort: 18083
+          env:
+            - name: EMQX_ALLOW_ANONYMOUS
+              value: 'false'
+            - name: EMQX_LOADED_PLUGINS
+              value: emqx_auth_mnesia
+            - name: EMQX_AUTH__MNESIA__PASSWORD__HASH
+              value: sha256
+            - name: EMQX_AUTH__USER__1__USERNAME
+              value: {{ .Values.mqtt.auth.cloudUsername | quote }}
+            - name: EMQX_AUTH__USER__1__PASSWORD
+              value: {{ .Values.mqtt.auth.cloudPassword | quote }}
+            - name: EMQX_AUTH__USER__2__USERNAME
+              value: {{ .Values.mqtt.auth.agentUsername | quote }}
+            - name: EMQX_AUTH__USER__2__PASSWORD
+              value: {{ .Values.mqtt.auth.agentPassword | quote }}
+      imagePullSecrets:
+        - name: {{ include "ecp-chart.fullname" . }}-docker-registry
+      volumes:
+        - name: tz
+          configMap:
+            name: {{ include "ecp-chart.fullname" . }}-tz
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-emqx-agent-download-proxy
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+    app: emqx-ecp-emqx-agent-download-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx-ecp-emqx-agent-download-proxy
+  template:
+    metadata:
+      labels:
+        app: emqx-ecp-emqx-agent-download-proxy
+    spec:
+      containers:
+        - name: emqx-ecp-emqx-agent-download-proxy
+          image: "{{ .Values.global.images.registry }}/{{ .Values.ecp.images.agentDlProxy.repository}}:{{ .Values.ecp.images.agentDlProxy.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.global.images.imagePullPolicy }}
+          env:
+            - name: GIN_MODE
+              value: release
+          ports:
+            - name: http
+              containerPort: 80
+      imagePullSecrets:
+        - name: {{ include "ecp-chart.fullname" . }}-docker-registry
+---

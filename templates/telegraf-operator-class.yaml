@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-telegraf-operator-classes
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+stringData:
+  # basic classes that can be used to develop telegraf-operator ; these classes
+  # report to InfluxDB v1 in same cluster as well as to stdout for convenience
+  basic: |+
+    [global_tags]
+    instanceID = "${Namespace}"
+
+    [agent]
+    interval = "60s"
+    flush_jitter = "5s"
+    flush_interval = "15s"
+    debug = true
+    quiet = false
+    metric_batch_size = 128
+    metric_buffer_limit = 256
+
+    #    [[inputs.http]]
+    #    urls = ["${PrometheusUrl}"]
+    #    method = "GET"
+    #    timeout = "5s"
+    #    username = "${EmqxApiUsername}"
+    #    password = "${EmqxApiPassword}"
+    #    data_format = "json"
+    #    [inputs.http.tags]
+    #    collection = "metric"
+    #
+    #    [[outputs.http]]
+    #    url = "${BCMetricGateway}"
+    #    method = "POST"
+    #    timeout = "15s"
+    #    data_format = "json"
+    #    [outputs.http.headers]
+    #    Content-Type = "application/json; charset=utf-8"
+    #    [outputs.http.tagpass]
+    #    collection = ["metric"]
+
+
+  external: |+
+    [global_tags]
+    instanceID = "${Namespace}"
+
+    [agent]
+    interval = "60s"
+    flush_jitter = "5s"
+    flush_interval = "15s"
+    debug = true
+    quiet = false
+    metric_batch_size = 128
+    metric_buffer_limit = 256
+
+    #    [[inputs.http]]
+    #    urls = ["${PrometheusUrl}"]
+    #    method = "GET"
+    #    timeout = "5s"
+    #    username = "${EmqxApiUsername}"
+    #    password = "${EmqxApiPassword}"
+    #    data_format = "json"
+    #    [inputs.http.tags]
+    #    collection = "metric"
+    #
+    #    [[outputs.http]]
+    #    url = "${BCMetricGateway}"
+    #    method = "POST"
+    #    timeout = "15s"
+    #    data_format = "json"
+    #    [outputs.http.headers]
+    #    Content-Type = "application/json; charset=utf-8"
+    #    [outputs.http.tagpass]
+    #    collection = ["metric"]
+
+
+    [[inputs.tail]]
+    files = ["/opt/emqx/log/emqx.log.[1-9]"]
+    from_beginning = false
+    max_undelivered_lines = 64
+    character_encoding = "utf-8"
+    data_format = "grok"
+    grok_patterns = ['^%{TIMESTAMP_ISO8601:timestamp:ts-"2006-01-02T15:04:05.999999999-07:00"} \[%{LOGLEVEL:level}\] (?m)%{GREEDYDATA:messages}$']
+    [inputs.tail.tags]
+    collection = "log"
+
+
+    [[outputs.elasticsearch]]
+    urls = ["${EsUrl}"]
+    timeout = "5s"
+    enable_sniffer = false
+    health_check_interval = "10s"
+    username = "${EsUsername}"
+    password = "${EsPassword}"
+    index_name = "${EsIndexName}"
+    ## Use TLS but skip chain & host verification
+    insecure_skip_verify = true
+    ## Optional TLS Config
+    # tls_ca = "/etc/telegraf/ca.pem"
+    # tls_cert = "/etc/telegraf/cert.pem"
+    # tls_key = "/etc/telegraf/key.pem"
+    [outputs.elasticsearch.tagpass]
+    collection = ["log"]

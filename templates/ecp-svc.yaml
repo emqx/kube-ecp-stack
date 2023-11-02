@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-svc
+  namespace: {{ $.Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: emqx-ecp-main
+  type: {{ .Values.ecp.services.mainSvc.type }}
+  ports:
+   {{- range .Values.ecp.services.mainSvc.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      protocol: {{ .protocol }}
+      targetPort: {{ .targetPort }}
+      nodePort: {{ .nodePort }}
+   {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-emqx-agent-dl
+  namespace: {{ $.Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: emqx-ecp-emqx-agent-download-proxy
+  type: {{ .Values.ecp.services.agentDlSvc.type }}
+  ports:
+    {{- range .Values.ecp.services.agentDlSvc.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+    {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-prometheus-svc
+  namespace: {{ $.Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: emqx-ecp-prometheus
+  type: {{ .Values.prometheus.services.prometheusSvc.type }}
+  ports:
+    {{- range .Values.prometheus.services.prometheusSvc.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      protocol: {{ .protocol }}
+      targetPort: {{ .targetPort }}
+      nodePort: {{ .nodePort }}
+    {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-alertmanager-svc
+  namespace: {{ $.Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: emqx-ecp-alertmanager
+  type: {{ .Values.prometheus.services.alertmanagerSvc.type }}
+  ports:
+    {{- range .Values.prometheus.services.alertmanagerSvc.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      protocol: {{ .protocol }}
+      targetPort: {{ .targetPort }}
+      nodePort: {{ .nodePort }}
+    {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-mqtt-svc
+  namespace: {{ $.Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: emqx-ecp-mqtt
+  type: {{ .Values.mqtt.services.mqttSvc.type }}
+  ports:
+    {{- range .Values.mqtt.services.mqttSvc.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      protocol: {{ .protocol }}
+      targetPort: {{ .targetPort }}
+      nodePort: {{ .nodePort }}
+    {{- end }}
+---

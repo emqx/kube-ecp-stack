@@ -1,0 +1,155 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-ui-conf
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+data:
+  default.conf: |
+    server {
+      listen 8080 default;
+      server_name _;
+
+      location / {
+        root /usr/share/nginx/dist;
+        try_files $uri $uri/ /index.html;
+      }
+
+      include /etc/nginx/nginx_edge_template.conf;
+
+      location /api/ {
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $http_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header Host $http_host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_pass http://127.0.0.1:8082;
+        proxy_buffering on;
+        proxy_buffer_size 32k;
+        proxy_busy_buffers_size 256k;
+        proxy_buffers 256 4k;
+      }
+
+      location /dl/emqx/agents/ {
+        proxy_pass http://{{ include "ecp-chart.fullname" . }}-emqx-agent-dl.{{ .Release.Namespace }}.svc/;
+      }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-main-conf
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+data:
+  conf.yaml: |
+    server:
+      port: 8082
+      metrics:
+        enabled: true
+        endpoint: {{ include "ecp-chart.fullname" . }}-svc.{{ .Release.Namespace }}.svc
+        username: "{{ .Values.prometheus.monitor.authUsername }}"
+        password: "{{ .Values.prometheus.monitor.authPassword }}"
+
+    db:
+      host: {{ include "ecp-chart.fullname" . }}-postgresql.{{ .Release.Namespace }}.svc
+      user: "{{ .Values.ecp.db.username }}"
+      password: "{{ .Values.ecp.db.password }}"
+      dbname: "{{ .Values.ecp.db.database }}"
+      port: 5432
+      autoMigrate: true
+      timezone: "Asia/Shanghai"
+      logLevel: "warn"
+      slowThreshold: "200ms"
+
+    logger:
+      mode: console
+      # format output log, json/txt
+      format: txt
+      path: /tmp/EMQX-ECP.log
+      level: warning
+      # MaxSize is the maximum size in megabytes of the log file before it gets rotated
+      maxSize: 10
+      # MaxAge is the maximum number of days to retain old log files based on the timestamp encoded in their filename
+      maxAge: 7
+      # MaxBackups is the maximum number of old log files to retain
+      maxBackups: 3
+
+    prometheus:
+      endpoint: {{ include "ecp-chart.fullname" . }}-prometheus-svc.{{ .Release.Namespace }}.svc:9090
+      username: "{{ .Values.prometheus.monitor.authUsername }}"
+      password: "{{ .Values.prometheus.monitor.authPassword }}"
+      cfgManager:
+        endpoint: {{ include "ecp-chart.fullname" . }}-prometheus-svc.{{ .Release.Namespace }}.svc:9091
+        username: "{{ .Values.prometheus.monitor.authUsername }}"
+        password: "{{ .Values.prometheus.monitor.authPassword }}"
+
+    alertmanager:
+      endpoint: {{ include "ecp-chart.fullname" . }}-alertmanager-svc.{{ .Release.Namespace }}.svc:9093
+      username: "{{ .Values.prometheus.monitor.authUsername }}"
+      password: "{{ .Values.prometheus.monitor.authPassword }}"
+      cfgManager:
+        endpoint: {{ include "ecp-chart.fullname" . }}-alertmanager-svc.{{ .Release.Namespace }}.svc:9094
+        username: "{{ .Values.prometheus.monitor.authUsername }}"
+        password: "{{ .Values.prometheus.monitor.authPassword }}"
+
+    # keep for later
+    mqtt:
+      addr: {{ include "ecp-chart.fullname" . }}-mqtt-svc.{{ .Release.Namespace }}.svc:1883
+      username: "{{ .Values.mqtt.auth.cloudUsername }}"
+      password: "{{ .Values.mqtt.auth.cloudPassword }}"
+      maxReconnectInterval: 3
+      connectTimeout: 8
+      cleanSession: true
+
+    file:
+      root_folder: "assets/files"
+
+    cluster:
+      agent:
+        {{- $fullName := include "ecp-chart.fullname" . -}}
+        {{- printf "\n" | nindent 2 }}
+        mqttServer: {{ default (printf "tcp://%s-mqtt-svc.%s.svc:1883" $fullName .Release.Namespace) .Values.mqtt.advertiseUrl | nindent 10 }}
+        mqttUsername: {{ .Values.mqtt.auth.agentUsername | nindent 10 }}
+        mqttPassword: {{ .Values.mqtt.auth.agentPassword | nindent 10 }}
+
+    edgeService:
+      mode: mixed
+      auth:
+        privateKey: configs/emqx-ecp
+        publicKey: configs/emqx-ecp.pub
+      interval:
+        health: 10
+      export:
+        prefix: /tmp
+      offlineCycleCount2Alarm: 1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-prometheus-web-conf
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+data:
+  web.yml: |
+    basic_auth_users:
+      monitor-admin-username: $2a$12$r9.Ez3GDFY3Vce3EwRrFAui3kZBHYHNKWaQcjDL6ES0d69F4iQL.6
+---
+apiVersion: v1
+binaryData:
+  Shanghai: VFppZjIAAAAAAAAAAAAAAAAAAAAAAAADAAAAAwAAAAAAAAAdAAAAAwAAAAyAAAAAoJeigKF5BPDIWV6AyQn5cMnTvQDLBYrwy3xAANI7PvDTi3uA1EKt8NVFIgDWTL/w1zy/ANgGZnDZHfKA2UF88B66UiAfaZuQIH6EoCFJfZAiZ6EgIylfkCRHgyAlEnwQJidlICbyXhAoB0cgKNJAEAIBAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAABx1wAAAAB+kAEEAABwgAAITE1UAENEVABDU1QAAAAAAAAAVFppZjIAAAAAAAAAAAAAAAAAAAAAAAADAAAAAwAAAAAAAAAdAAAAAwAAAAz/////fjZDKf////+gl6KA/////6F5BPD/////yFlegP/////JCflw/////8nTvQD/////ywWK8P/////LfEAA/////9I7PvD/////04t7gP/////UQq3w/////9VFIgD/////1ky/8P/////XPL8A/////9gGZnD/////2R3ygP/////ZQXzwAAAAAB66UiAAAAAAH2mbkAAAAAAgfoSgAAAAACFJfZAAAAAAImehIAAAAAAjKV+QAAAAACRHgyAAAAAAJRJ8EAAAAAAmJ2UgAAAAACbyXhAAAAAAKAdHIAAAAAAo0kAQAgECAQIBAgECAQIBAgECAQIBAgECAQIBAgECAQIAAHHXAAAAAH6QAQQAAHCAAAhMTVQAQ0RUAENTVAAAAAAAAAAKQ1NULTgK
+kind: ConfigMap
+metadata:
+  name: {{ include "ecp-chart.fullname" . }}-tz
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ecp-chart.labels" . | nindent 4 }}

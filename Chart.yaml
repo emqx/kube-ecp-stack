@@ -1,0 +1,27 @@
+apiVersion: v2
+name: kube-ecp-stack
+description: A Helm chart stack for EMQX ECP
+
+type: application
+
+version: 1.11.0
+
+appVersion: 1.11.0
+
+dependencies:
+  - name: cert-manager
+    version: v1.11.0
+    repository: https://charts.jetstack.io
+  - name: postgresql
+    nameOverride: emqx-ecp-postgresql
+    version: 12.1.14
+    repository: https://charts.bitnami.com/bitnami
+  - name: emqx-operator
+    version: v1.0.11-ecp.7
+    repository: https://repos.emqx.io/charts
+  - name: edge-operator
+    version: v0.0.5
+    repository: https://repos.emqx.io/charts
+  - name: telegraf-operator
+    version: v1.3.10
+    repository: https://helm.influxdata.com
